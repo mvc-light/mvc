@@ -1,6 +1,6 @@
 <?php
 
-namespace MvcLight\Route;
+namespace MvcLight;
 
 class Router {
 

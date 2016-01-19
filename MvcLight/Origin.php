@@ -1,6 +1,6 @@
 <?php
 
-namespace MvcLight\Core\Command;
+namespace MvcLight;
 
 class Origin {// extends Core {
 
