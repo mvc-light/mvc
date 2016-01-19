@@ -1,8 +1,7 @@
 <?php
 
-namespace MvcLight\Core;
+namespace MvcLight;
 
-use MvcLight\Route\Router;
 use Twig_Loader_Filesystem;
 use Twig_Environment;
 use Twig_SimpleFilter;

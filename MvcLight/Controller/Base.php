@@ -1,8 +1,8 @@
 <?php
 
-namespace MvcLight\Core\Controller;
+namespace MvcLight\Controller;
 
-use MvcLight\Core\Command\Origin;
+use MvcLight\Origin;
 
 class Base {
 
