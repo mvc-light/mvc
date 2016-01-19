@@ -1,0 +1,15 @@
+{
+    "name": "mvc-light/mvc",
+    "authors": [
+        {
+            "name": "NguyenHaiQuang",
+            "email": "haiquang9994@gmail.com"
+        }
+    ],
+    "autoload": {
+        "psr-0": {
+            "MvcLight\\Core\\": "",
+            "MvcLight\\Route\\": ""
+        }
+    }
+}
