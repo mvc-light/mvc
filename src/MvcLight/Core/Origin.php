@@ -1,6 +1,6 @@
 <?php
 
-namespace MvcLight;
+namespace MvcLight\Core;
 
 class Origin {// extends Core {
 
