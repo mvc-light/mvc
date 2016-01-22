@@ -1,6 +1,6 @@
 <?php
 
-namespace MvcLight;
+namespace MvcLight\Twig;
 
 class TwigCustomize extends \Twig_Environment {
 

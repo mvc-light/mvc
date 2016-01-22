@@ -3,9 +3,9 @@
 namespace MvcLight;
 
 use Twig_Loader_Filesystem;
-//use Twig_Environment;
 use Twig_SimpleFilter;
 use Twig_SimpleFunction;
+use MvcLight\Twig\TwigCustomize;
 
 class App {
 
@@ -23,8 +23,6 @@ class App {
         $this->loadSession();
         $this->loadRoute();
         $this->loadTwig($this->env);
-        $this->addFunction();
-        $this->addFilter();
     }
 
     private function loadSession() {
@@ -38,6 +36,7 @@ class App {
     }
 
     private function loadTwig($env) {
+        $twig_inport = include ROOTDIR . DS . 'app' . DS . 'config' . DS . 'twig.php';
         $loader = new Twig_Loader_Filesystem(self::DIR_VIEW);
         switch ($env) {
             case 'DEV':
@@ -51,13 +50,13 @@ class App {
         }
         $this->twig->enableStrictVariables();
         $this->twig->disableAutoReload();
-        $this->twig->registerUndefinedFunctionCallback(function ($name) {
-            $this->addError('Twig Error Syntax!', "Function: \"" . $name . "\" is not defined!", 404);
-            $this->checkError();
-        });
-//        $this->twig->registerUndefinedVariableCallback(function (){
-//            
+//        $this->twig->registerUndefinedFunctionCallback(function ($name) {
+//            $this->addError('Twig Error Syntax!', "Function: \"" . $name . "\" is not defined!", 404);
+//            $this->checkError();
 //        });
+        $this->loadDefalt();
+        $this->addFunction($twig_inport['function']);
+        $this->addFilter($twig_inport['filter']);
     }
 
     public function redirect($url) {
@@ -121,15 +120,35 @@ class App {
         }
     }
 
-    private function addFunction() {
+    private function addFunction($list) {
         $function = new Twig_SimpleFunction('url', function ($name, $param = array()) {
             return $this->url($name, $param);
         });
         $this->twig->addFunction($function);
+        foreach ($list as $name => $func) {
+            $new_func = new Twig_SimpleFunction($name, $func);
+            $this->twig->addFunction($new_func);
+        }
+    }
+    
+    private function loadDefalt(){
+        $default_func = include __DIR__ . DS . 'Twig' . DS . 'functionDefault.php';
+        foreach ($default_func as $name => $func) {
+            $new_func = new Twig_SimpleFunction($name, $func);
+            $this->twig->addFunction($new_func);
+        }
+        $default_filter = include __DIR__ . DS . 'Twig' . DS . 'filterDefault.php';
+        foreach ($default_filter as $name => $filter) {
+            $new_filter = new Twig_SimpleFilter($name, $filter);
+            $this->twig->addFilter($new_filter);
+        }
     }
 
-    private function addFilter() {
-        
+    private function addFilter($list) {
+        foreach ($list as $name => $filter) {
+            $new_filter = new Twig_SimpleFilter($name, $filter);
+            $this->twig->addFilter($new_filter);
+        }
     }
 
 }
