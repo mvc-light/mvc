@@ -3,7 +3,7 @@
 namespace MvcLight;
 
 use Twig_Loader_Filesystem;
-use Twig_Environment;
+//use Twig_Environment;
 use Twig_SimpleFilter;
 use Twig_SimpleFunction;
 
@@ -12,7 +12,6 @@ class App {
     private $env = '';
     private $twig = NULL;
     private $request = NULL;
-    private $sessionName = NULL;
     private $route = array();
     private $error = array();
 
@@ -21,33 +20,47 @@ class App {
 
     public function __construct($ENV) {
         $this->env = $ENV;
-        $this->request = new Request();
-        $this->route = new Router();
-        $this->route->loadRouteFile(ROOTDIR . DS . 'app' . DS . 'config' . DS . 'route.php');
-        $this->sessionName = session_name('MvcLightSession');
-        if (!isset($_SESSION)) {
-            session_start($this->sessionName);
-        }
+        $this->loadSession();
+        $this->loadRoute();
         $this->loadTwig($this->env);
         $this->addFunction();
         $this->addFilter();
+    }
+
+    private function loadSession() {
+        session_start(session_name('Origin_Session'));
+    }
+
+    private function loadRoute() {
+        $this->request = new Request();
+        $this->route = new Router();
+        $this->route->loadRouteFile(ROOTDIR . DS . 'app' . DS . 'config' . DS . 'route.php');
     }
 
     private function loadTwig($env) {
         $loader = new Twig_Loader_Filesystem(self::DIR_VIEW);
         switch ($env) {
             case 'DEV':
-                $this->twig = new Twig_Environment($loader);
+                $this->twig = new TwigCustomize($loader);
                 break;
             case 'PRO':
-                $this->twig = new Twig_Environment($loader, array(
+                $this->twig = new TwigCustomize($loader, array(
                     'cache' => self::DIR_CACHE
                 ));
                 break;
         }
+        $this->twig->enableStrictVariables();
+        $this->twig->disableAutoReload();
+        $this->twig->registerUndefinedFunctionCallback(function ($name) {
+            $this->addError('Twig Error Syntax!', "Function: \"" . $name . "\" is not defined!", 404);
+            $this->checkError();
+        });
+//        $this->twig->registerUndefinedVariableCallback(function (){
+//            
+//        });
     }
-    
-    public function redirect($url){
+
+    public function redirect($url) {
         header('Location: ' . $url);
     }
 
@@ -84,8 +97,11 @@ class App {
         return $uri;
     }
 
-    public function addError($name, $msg) {
-        $this->error[$name] = $msg;
+    public function addError($name, $msg, $state) {
+        $this->error[$name] = array(
+            'msg' => $msg,
+            'state' => $state
+        );
     }
 
     public function checkError() {
@@ -111,8 +127,8 @@ class App {
         });
         $this->twig->addFunction($function);
     }
-    
-    private function addFilter(){
+
+    private function addFilter() {
         
     }
 

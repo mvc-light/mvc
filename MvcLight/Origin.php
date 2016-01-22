@@ -2,40 +2,27 @@
 
 namespace MvcLight;
 
-class Origin {// extends Core {
+use MvcLight\Model\Core;
+
+class Origin {
 
     private $app = null;
     private $controller;
     private $action;
     private $param;
-    private static $static = null;
 
-//    const DIR_APP = ROOTDIR . DS . 'app' . DS;
     const DIR_VIEW = ROOTDIR . DS . 'app' . DS . 'view';
 
-//    const DIR_CACHE = ROOTDIR . DS . 'app' . DS . 'cache';
-
-    public function __construct($param = array()) {
-//        parent::__construct($param);
+    public function run() {
+        self::access();
     }
 
     public function ENVPRO() {
         $this->app->setENV('PRO');
     }
 
-    public function addError($name, $msg) {
-        $this->app->addError($name, $msg);
-    }
-
-    public function checkError() {
-        return $this->app->checkError();
-    }
-
     public static function getStatic() {
-        if (static::$static === null) {
-            static::$static = new static();
-        }
-        return static::$static;
+        return new static();
     }
 
     public function getApp() {
@@ -43,64 +30,69 @@ class Origin {// extends Core {
     }
 
     public function init($param) {
-        if (!$this->app) {
-            $this->app = new App((isset($param['env']) && $param['env'] == 'PRO') ? $param['env'] : 'DEV');
-        }
+        $this->app = new App((isset($param['env']) && $param['env'] == 'PRO') ? $param['env'] : 'DEV');
+        $info = include ROOTDIR . DS . 'app' . DS . 'config' . DS . 'db.php';
+        Core::getInstance()->init($info, $this->app)->connect();
         return $this;
     }
 
-    public function run() {
-        $this->access();
-    }
-
     private function access() {
-        $this->checkRoute();
-        $result = $this->runAction();
-        $this->runView($result['view'], $result['data']);
+        self::checkRoute();
+        $result = self::runAction();
+        self::runView($result['view'], $result['data']);
     }
 
     private function runView($view, $data = array()) {
-        $this->checkView($view);
+        self::checkView($view);
         $data['app'] = $this->app;
-        echo $this->app->getTwig()->render($view, $data);
+        try {
+            echo $this->app->getTwig()->render($view, $data);
+        } catch (\Twig_Error $ex) {
+            self::addError('Twig File Error!', "Messeger: " . $ex->getMessage(), 404);
+            self::checkError();
+        }
     }
 
     private function checkView($view) {
         if (!is_file(self::DIR_VIEW . DS . $view)) {
-            $this->addError('View error!', "File: \"$view\" is not exist!");
+            self::addError('View error!', "File: \"" . str_replace('/', '\\', self::DIR_VIEW . DS . $view) . "\" is not exist!", 404);
         }
-        $this->checkError();
+        self::checkError();
     }
 
     private function runAction() {
         $controller = $this->controller;
         $class = '\\App\\Controller\\' . $controller;
-        if (!class_exists($class)) {
-            $this->addError('Controller error!', "Class: \"$controller\" is not exist!");
+        $reflectionClass = new \ReflectionClass($class);
+        if (!class_exists($class) || !$reflectionClass->IsInstantiable()) {
+            self::addError('Controller error!', "Class: \"$class\" is not exist or can not initialize!", 404);
         } else {
             $action = $this->action;
             if (!method_exists($class, $action)) {
-                $this->addError('Action error!', "Method: \"$controller\\$action\" is not exist!");
+                self::addError('Action error!', "Method: \"$class::$action\" is not exist!", 404);
             } else {
-                $CTRL = new $class();
-                return call_user_func_array(array($CTRL, $action), $this->app->getRoute()->get('seleted_route')['param_route']);
+
+                return call_user_func_array(
+                        array(
+                    new $class(),
+                    $action
+                        ), $this->app->getRoute()->get('seleted_route')['param_route']
+                );
             }
         }
-        $this->checkError();
+        self::checkError();
     }
 
     private function checkRoute() {
-//        $this->route = new Router();
-//        $this->route->loadRouteFile(ROOTDIR . DS . 'app' . DS . 'config' . DS . 'route.php');
         $_path = $this->app->getRequest()->get('path');
         $check_path = $this->app->getRoute()->run($_path);
         if ($check_path) {
             self::set_value_route($this->app->getRoute());
         } else {
-            header('HTTP/1.0 404 Not Found');
-            $this->addError('Route error!', 'Can not found a router for your path!');
+//            header('HTTP/1.0 404 Not Found');
+            self::addError('Route error!', 'Can not found a router for your path!', 404);
         }
-        $this->checkError();
+        self::checkError();
     }
 
     private function set_value_route($routeObj) {
@@ -108,10 +100,32 @@ class Origin {// extends Core {
         $name_route = $info_route['name_route'];
         $param_route = $info_route['param_route'];
         $seleted_route = $routeObj->getRoute($name_route);
+        self::checkMethod($seleted_route);
         $ca_string = explode(':', $seleted_route[1]);
-        $this->controller = $ca_string[0];
+        if (!isset($ca_string[0]) || $ca_string[0] == '' || !isset($ca_string[1]) || $ca_string[1] == '') {
+            self::addError('Route error!', 'Your route is not invalid same structure!', 404);
+            self::checkError();
+        }
+        $this->controller = $ca_string[0] . 'Controller';
         $this->action = $ca_string[1] . 'Action';
         $this->param = $param_route;
+    }
+
+    private function checkMethod($seleted_route) {
+        $cur_method = $this->app->getRequest()->get('method');
+        $allow_method = (isset($seleted_route[2])) ? $seleted_route[2] : '';
+        if ($allow_method !== '' && $allow_method !== $cur_method) {
+            self::addError('Route error!', 'Method access is not invalid!', 405);
+        }
+        self::checkError();
+    }
+
+    public function addError($name, $msg, $state) {
+        $this->app->addError($name, $msg, $state);
+    }
+
+    public function checkError() {
+        return $this->app->checkError();
     }
 
 }

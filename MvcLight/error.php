@@ -52,7 +52,7 @@
                     <h2><?php echo $key; ?></h2>
                 </div>
                 <div class="content-error">
-                    <p><?php echo $value; ?></p>
+                    <p><?php echo $value['msg']; ?></p>
                 </div>
                 <?php
             }

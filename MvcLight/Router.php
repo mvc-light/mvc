@@ -93,7 +93,7 @@ class Router {
                 self::$seleted_route = $key;
                 return TRUE;
             }
-            if ($count_path < $count_uri) {
+            if ($count_path > $count_uri) {
                 continue;
             }
             for ($i = 0; $i < $count_uri; $i++) {
@@ -104,6 +104,7 @@ class Router {
                     } else {
                         continue;
                     }
+                    
                 } else {
                     $check = self::check_part($part_path[$i], $part_uri[$i]);
                     if ($check) {

@@ -10,7 +10,8 @@ class Request {
     private $scheme;
     private $method;
     private $url;
-    private $request_time;
+    private $requestTime;
+    private $queryString;
 
     public function __construct() {
         $this->server = strtolower($_SERVER['SERVER_NAME']);
@@ -27,7 +28,8 @@ class Request {
         $this->scheme = strtolower($_SERVER['REQUEST_SCHEME']);
         $this->method = strtolower($_SERVER['REQUEST_METHOD']);
         $this->url = strtolower($_SERVER['REQUEST_SCHEME'] . '://' . $_SERVER['SERVER_NAME'] . $_SERVER['REQUEST_URI']);
-        $this->request_time = $_SERVER['REQUEST_TIME'];
+        $this->requestTime = $_SERVER['REQUEST_TIME'];
+        $this->queryString = $_SERVER['QUERY_STRING'];
     }
     
     public function get($key){
@@ -44,8 +46,10 @@ class Request {
                 return $this->method;
             case 'url':
                 return $this->url;
-            case 'request_time':
-                return $this->request_time;
+            case 'requestTime':
+                return $this->requestTime;
+            case 'queryString':
+                return $this->queryString;
         }
     }
     
