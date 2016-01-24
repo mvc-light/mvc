@@ -1,1 +1,2 @@
-name: Nguyen HaiQuang
+MVC-LIGHT
+v1.0.0
