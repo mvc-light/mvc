@@ -1,6 +1,6 @@
 <?php
 
-namespace MvcLight;
+namespace MvcLight\Core;
 
 use Twig_Loader_Filesystem;
 use Twig_SimpleFilter;
@@ -158,12 +158,12 @@ class App {
     }
 
     private function loadDefalt() {
-        $default_func = include __DIR__ . DS . 'Twig' . DS . 'functionDefault.php';
+        $default_func = include __DIR__ . DS . '..' . DS . 'Twig' . DS . 'functionDefault.php';
         foreach ($default_func as $name => $func) {
             $new_func = new Twig_SimpleFunction($name, $func);
             $this->twig->addFunction($new_func);
         }
-        $default_filter = include __DIR__ . DS . 'Twig' . DS . 'filterDefault.php';
+        $default_filter = include __DIR__ . DS . '..' . DS . 'Twig' . DS . 'filterDefault.php';
         foreach ($default_filter as $name => $filter) {
             $new_filter = new Twig_SimpleFilter($name, $filter);
             $this->twig->addFilter($new_filter);

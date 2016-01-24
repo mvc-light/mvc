@@ -3,6 +3,7 @@
 namespace MvcLight;
 
 use MvcLight\Model\Core;
+use MvcLight\Core\App;
 
 class Origin {
 
