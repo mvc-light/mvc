@@ -23,6 +23,19 @@ class App {
         $this->loadSession();
         $this->loadRoute();
         $this->loadTwig($this->env);
+
+
+
+        set_error_handler(function($errno, $errstr, $errfile, $errline, array $errcontext) {
+//            if (0 === error_reporting()) {
+//                return false;
+//            }
+            if ($this->env == 'PRO') {
+                return false;
+            }
+            $this->addError('Fatal Error!', $errstr . "<br><i><b/>$errfile </b> on line $errline</i>", 404);
+            $this->checkError();
+        });
     }
 
     private function loadSession() {
@@ -97,7 +110,8 @@ class App {
     }
 
     public function addError($name, $msg, $state) {
-        $this->error[$name] = array(
+        $this->error[] = array(
+            'name' => $name,
             'msg' => $msg,
             'state' => $state
         );
@@ -109,14 +123,26 @@ class App {
             return TRUE;
         } else {
             ob_get_clean();
+            static::headerError($error[0]['state']);
             $env = $this->env;
             switch ($env) {
                 case 'DEV':
-                    include ROOTDIR . DS . 'vendor' . DS . 'mvc-light' . DS . 'mvc' . DS . 'MvcLight' . DS . 'error.php';
+                    include ROOTDIR . DS . 'vendor' . DS . 'mvc-light' . DS . 'mvc' . DS . 'MvcLight' . DS . 'Error' . DS . 'error.php';
                     exit;
                 case 'PRO':
                     exit;
             }
+        }
+    }
+
+    private static function headerError($numberError) {
+        switch ($numberError) {
+            case 404:
+                header('HTTP/1.0 404 Not Found!');
+                break;
+            case 405:
+                header('HTTP/1.0 405 Not Allow Method!');
+                break;
         }
     }
 
@@ -130,8 +156,8 @@ class App {
             $this->twig->addFunction($new_func);
         }
     }
-    
-    private function loadDefalt(){
+
+    private function loadDefalt() {
         $default_func = include __DIR__ . DS . 'Twig' . DS . 'functionDefault.php';
         foreach ($default_func as $name => $func) {
             $new_func = new Twig_SimpleFunction($name, $func);

@@ -49,7 +49,7 @@
             foreach ($error as $key => $value) {
                 ?>
                 <div class="title-error">
-                    <h2><?php echo $key; ?></h2>
+                    <h2><?php echo $value['name']; ?></h2>
                 </div>
                 <div class="content-error">
                     <p><?php echo $value['msg']; ?></p>

@@ -55,23 +55,24 @@ class Origin {
 
     private function checkView($view) {
         if (!is_file(self::DIR_VIEW . DS . $view)) {
-            self::addError('View error!', "File: \"" . str_replace('/', '\\', self::DIR_VIEW . DS . $view) . "\" is not exist!", 404);
+            self::addError('View error!', "File: <b>\"" . str_replace('/', '\\', self::DIR_VIEW . DS . $view) . "\"</b> is not exist!", 404);
+            self::checkError();
         }
-        self::checkError();
     }
 
     private function runAction() {
         $controller = $this->controller;
         $class = '\\App\\Controller\\' . $controller;
-        $reflectionClass = new \ReflectionClass($class);
-        if (!class_exists($class) || !$reflectionClass->IsInstantiable()) {
-            self::addError('Controller error!', "Class: \"$class\" is not exist or can not initialize!", 404);
+        if (!class_exists($class)) {
+            self::addError('Controller error!', "Class: <b>\"$class\"</b> is not exist!", 404);
+            self::checkError();
         } else {
+            self::checkInstantiable($class);
             $action = $this->action;
             if (!method_exists($class, $action)) {
-                self::addError('Action error!', "Method: \"$class::$action\" is not exist!", 404);
+                self::addError('Action error!', "Method: <b>\"$class::$action\"</b> is not exist!", 404);
+                self::checkError();
             } else {
-
                 return call_user_func_array(
                         array(
                     new $class(),
@@ -80,7 +81,14 @@ class Origin {
                 );
             }
         }
-        self::checkError();
+    }
+
+    private function checkInstantiable($class) {
+        $reflectionClass = new \ReflectionClass($class);
+        if (!$reflectionClass->IsInstantiable()) {
+            self::addError('Controller error!', "Class: <b>\"$class\"</b> is can not initialize!", 404);
+            self::checkError();
+        }
     }
 
     private function checkRoute() {
@@ -89,10 +97,9 @@ class Origin {
         if ($check_path) {
             self::set_value_route($this->app->getRoute());
         } else {
-//            header('HTTP/1.0 404 Not Found');
-            self::addError('Route error!', 'Can not found a router for your path!', 404);
+            self::addError('Route error!', 'Can not found a router for your path!<br><i><b>Your Path: </b>' . $_path . '</i>', 404);
+            self::checkError();
         }
-        self::checkError();
     }
 
     private function set_value_route($routeObj) {
@@ -116,8 +123,8 @@ class Origin {
         $allow_method = (isset($seleted_route[2])) ? $seleted_route[2] : '';
         if ($allow_method !== '' && $allow_method !== $cur_method) {
             self::addError('Route error!', 'Method access is not invalid!', 405);
+            self::checkError();
         }
-        self::checkError();
     }
 
     public function addError($name, $msg, $state) {
