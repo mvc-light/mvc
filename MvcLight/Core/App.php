@@ -15,8 +15,8 @@ class App {
     private $route = array();
     private $error = array();
 
-    const DIR_VIEW = ROOTDIR . DS . 'app' . DS . 'view';
-    const DIR_CACHE = ROOTDIR . DS . 'app' . DS . 'cache';
+    const DIR_VIEW = ROOTDIR . DS . 'application' . DS . 'view';
+    const DIR_CACHE = ROOTDIR . DS . 'application' . DS . 'cache';
 
     public function __construct($ENV) {
         $this->env = $ENV;
@@ -45,11 +45,11 @@ class App {
     private function loadRoute() {
         $this->request = new Request();
         $this->route = new Router();
-        $this->route->loadRouteFile(ROOTDIR . DS . 'app' . DS . 'config' . DS . 'route.php');
+        $this->route->loadRouteFile(ROOTDIR . DS . 'application' . DS . 'config' . DS . 'route.php');
     }
 
     private function loadTwig($env) {
-        $twig_inport = include ROOTDIR . DS . 'app' . DS . 'config' . DS . 'twig.php';
+        $twig_inport = include ROOTDIR . DS . 'application' . DS . 'config' . DS . 'twig.php';
         $loader = new Twig_Loader_Filesystem(self::DIR_VIEW);
         switch ($env) {
             case 'DEV':

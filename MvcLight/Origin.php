@@ -12,7 +12,7 @@ class Origin {
     private $action;
     private $param;
 
-    const DIR_VIEW = ROOTDIR . DS . 'app' . DS . 'view';
+    const DIR_VIEW = ROOTDIR . DS . 'application' . DS . 'view';
 
     public function run() {
         self::access();
@@ -32,7 +32,7 @@ class Origin {
 
     public function init($param) {
         $this->app = new App((isset($param['env']) && $param['env'] == 'PRO') ? $param['env'] : 'DEV');
-        $info = include ROOTDIR . DS . 'app' . DS . 'config' . DS . 'db.php';
+        $info = include ROOTDIR . DS . 'application' . DS . 'config' . DS . 'db.php';
         Core::getInstance()->init($info, $this->app)->connect();
         return $this;
     }
