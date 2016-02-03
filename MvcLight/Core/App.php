@@ -6,6 +6,7 @@ use Twig_Loader_Filesystem;
 use Twig_SimpleFilter;
 use Twig_SimpleFunction;
 use MvcLight\Twig\TwigCustomize;
+use MvcLight\Origin;
 
 class App {
 
@@ -14,28 +15,28 @@ class App {
     private $request = NULL;
     private $route = array();
     private $error = array();
-
-    const DIR_VIEW = ROOTDIR . DS . 'application' . DS . 'view';
-    const DIR_CACHE = ROOTDIR . DS . 'application' . DS . 'cache';
+    private $redirectError = array();
 
     public function __construct($ENV) {
         $this->env = $ENV;
         $this->loadSession();
         $this->loadRoute();
+        $this->loadRedirectError();
         $this->loadTwig($this->env);
 
 
 
         set_error_handler(function($errno, $errstr, $errfile, $errline, array $errcontext) {
-//            if (0 === error_reporting()) {
-//                return false;
-//            }
             if ($this->env == 'PRO') {
                 return false;
             }
             $this->addError('Fatal Error!', $errstr . "<br><i><b/>$errfile </b> on line $errline</i>", 404);
             $this->checkError();
         });
+    }
+
+    private function loadRedirectError() {
+        $this->redirectError = include ROOTDIR . DS . 'application' . DS . 'config' . DS . 'error.php';
     }
 
     private function loadSession() {
@@ -49,15 +50,17 @@ class App {
     }
 
     private function loadTwig($env) {
+        $dir_view = ROOTDIR . DS . 'application' . DS . 'view';
+        $dir_cache = ROOTDIR . DS . 'application' . DS . 'cache';
         $twig_inport = include ROOTDIR . DS . 'application' . DS . 'config' . DS . 'twig.php';
-        $loader = new Twig_Loader_Filesystem(self::DIR_VIEW);
+        $loader = new Twig_Loader_Filesystem($dir_view);
         switch ($env) {
             case 'DEV':
                 $this->twig = new TwigCustomize($loader);
                 break;
             case 'PRO':
                 $this->twig = new TwigCustomize($loader, array(
-                    'cache' => self::DIR_CACHE
+                    'cache' => $dir_cache
                 ));
                 break;
         }
@@ -123,25 +126,117 @@ class App {
             return TRUE;
         } else {
             ob_get_clean();
-            static::headerError($error[0]['state']);
+            $state = $error[0]['state'];
+            static::headerError($state);
             $env = $this->env;
             switch ($env) {
                 case 'DEV':
                     include ROOTDIR . DS . 'vendor' . DS . 'mvc-light' . DS . 'mvc' . DS . 'MvcLight' . DS . 'Error' . DS . 'error.php';
                     exit;
                 case 'PRO':
+                    $this->redirectErrorRoute($state);
                     exit;
             }
         }
     }
 
+    private function redirectErrorRoute($state) {
+        $name_route = $this->getItem($state, $this->redirectError);
+        if (!$name_route) {
+            $this->errorThrowRedirect();
+        }
+        $this->redirect($this->url($name_route));
+//        $route = $this->route->getRoute($name_route);
+//        if (!$route) {
+//            $this->errorThrowRedirect();
+//        }
+//        $CA = array_filter(explode(':', $route[1]));
+//        if (count($CA) != 2) {
+//            $this->errorThrowRedirect();
+//        }
+//        $ctrl = $CA[0] . 'Controller';
+//        $act = $CA[1] . 'Action';
+//        $class = '\\App\\Controller\\' . $ctrl;
+//        if (!class_exists($class)) {
+//            $this->errorThrowRedirect();
+//        }
+//        $reflectionClass = new \ReflectionClass($class);
+//        if (!$reflectionClass->IsInstantiable()) {
+//            $this->errorThrowRedirect();
+//        }
+//        if (!method_exists($class, $act)) {
+//            $this->errorThrowRedirect();
+//        }
+//        $result = call_user_func_array(array(new $class(), $act), array());
+//        if (!$result) {
+//            $this->errorThrowRedirect();
+//        }
+//        $dir_view = ROOTDIR . DS . 'application' . DS . 'view';
+//        $view = $result['view'];
+//        if (!is_file($dir_view . DS . $view)) {
+//            $this->errorThrowRedirect();
+//        }
+//        $data = $result['data'];
+//        $data['app'] = $this;
+//        try {
+//            echo $this->twig->render($view, $data);
+//        } catch (\Twig_Error $ex) {
+//            $this->errorThrowRedirect();
+//        }
+//        die;
+    }
+
+    public function runAction($ctrl, $act) {
+        $controller = $ctrl;
+        $class = '\\App\\Controller\\' . $controller;
+        if (!class_exists($class)) {
+            $this->addError('Controller error!', "Class: <b>\"$class\"</b> is not exist!", 500);
+            $this->checkError();
+        } else {
+            $this->checkInstantiable($class);
+            $action = $act;
+            if (!method_exists($class, $action)) {
+                $this->addError('Action error!', "Method: <b>\"$class::$action\"</b> is not exist!", 500);
+                $this->checkError();
+            } else {
+                return call_user_func_array(
+                        array(
+                    new $class(),
+                    $action
+                        ), $this->route->get('seleted_route')['param_route']
+                );
+            }
+        }
+    }
+
+    private function checkInstantiable($class) {
+        $reflectionClass = new \ReflectionClass($class);
+        if (!$reflectionClass->IsInstantiable()) {
+            $this->addError('Controller error!', "Class: <b>\"$class\"</b> is can not initialize!", 404);
+            $this->checkError();
+        }
+    }
+
+    private function errorThrowRedirect() {
+        echo "<b style='font-size: 36px; margin-top: 20px; display: block;'>Page not found!</b><br><hr>";
+        echo "<span>Server can not access this request!<span/>";
+        exit;
+    }
+
+    private function getItem($name, $array = array()) {
+        return (isset($array[$name])) ? $array[$name] : false;
+    }
+
     private static function headerError($numberError) {
         switch ($numberError) {
             case 404:
-                header('HTTP/1.0 404 Not Found!');
+                header($_SERVER['SERVER_PROTOCOL'] . ' 404 Not Found!');
                 break;
             case 405:
-                header('HTTP/1.0 405 Not Allow Method!');
+                header($_SERVER['SERVER_PROTOCOL'] . ' 405 Not Allow Method!');
+                break;
+            case 500:
+                header($_SERVER['SERVER_PROTOCOL'] . ' 500 Internal Server Error');
                 break;
         }
     }

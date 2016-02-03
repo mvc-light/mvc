@@ -2,227 +2,161 @@
 
 namespace MvcLight\Model;
 
+use PDO;
+
 class Base {
 
-    protected static $where = '';
-    protected static $select = '*';
-    protected static $orderby = '';
-    protected static $limit = '';
+    private static $pdo;
     protected $table;
+    protected $attributes = array();
+    protected static $app;
 
-    /**
-     * @return Boolean Delete some row on database
-     */
-    public static function delete() {
-        $where = static::$where;
-        if ($where == '') {
-            Core::getApp()->addError("Model Error!", "Message: ::delete() function missing where clause!", 404);
-            Core::getApp()->checkError();
+    public function __get($name) {
+//        if (isset($this->$name) && $name != 'extra_column_model') {
+//            return $this->$name;
+//        }
+        if (isset($this->attributes[$name])) {
+            return $this->attributes[$name];
         }
-        $instance = new static();
-        $table = $instance->getTable();
-        $sql = "delete from $table";
-        if ($where != 'all') {
-            $sql = $sql . " $where";
-        }
-        $state = mysqli_query(Core::getCon(), $sql);
-        $error = mysqli_error(Core::getCon());
-        if ($error != '') {
-            Core::getApp()->addError("Model Error!", "Message: $error!<br><i><b>Your query:</b> $sql</i>", 404);
-            Core::getApp()->checkError();
-        }
-        static::reset();
-        return $state;
+        return NULL;
     }
 
-    /**
-     * @param Array $data Array has key is field on database
-     * @return Boolean Update some row on database
-     */
-    public static function update($data) {
-        $where = static::$where;
-        if ($where == '') {
-            Core::getApp()->addError("Model Error!", "Message: ::update() function missing where clause!", 404);
-            Core::getApp()->checkError();
+    public function __set($name, $value) {
+        $this->attributes[$name] = $value;
+    }
+
+    public function __call($name, $ags) {
+        if (isset($this->attributes[$name])) {
+            return $this->attributes[$name];
         }
-        $instance = new static();
-        $table = $instance->getTable();
+        return NULL;
+    }
+
+    public function init($info, $app) {
+        self::$app = $app;
+        $driver = $info['driver'];
+        $dbname = $info['database'];
+        $host = $info['host'];
+        $user = $info['user'];
+        $pass = $info['password'];
+        $encoding = $info['charset'];
+        $timezone = $info['timezone'];
+        $option = array(
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES $encoding"
+        );
+        self::$pdo = new PDO("$driver:dbname=$dbname;host=$host", $user, $pass, $option);
+        date_default_timezone_set($timezone);
+    }
+
+    public static function all() {
+        $table = self::getTB();
+        $query = self::$pdo->prepare("SELECT * FROM `$table`");
+        try {
+            $query->execute();
+        } catch (PDOException $ex) {
+            self::checkError($ex);
+        }
+        return $query->fetchAll(PDO::FETCH_CLASS, get_called_class());
+    }
+
+    public static function query($query) {
+        return self::$pdo->prepare($query);
+    }
+
+    public static function get($query, $param = array()) {
+        try {
+            $query->execute($param);
+        } catch (PDOException $ex) {
+            self::checkError($ex);
+        }
+        return $query->fetchAll(PDO::FETCH_CLASS, get_called_class());
+    }
+
+    public static function first($query, $param = array()) {
+        try {
+            $query->execute($param);
+        } catch (PDOException $ex) {
+            self::checkError($ex);
+        }
+        return $query->fetchObject(get_called_class());
+    }
+
+    public static function insert($data) {
+        $table = self::getTB();
+        $fields = implode(',', array_keys($data));
+        $value = implode(',:', array_keys($data));
+        $sql = "INSERT INTO `$table` ($fields) VALUES (:$value)";
+        $query = self::$pdo->prepare($sql);
+        try {
+            $query->execute($data);
+        } catch (PDOException $ex) {
+            self::checkError($ex);
+        }
+        $lastId = self::$pdo->lastInsertId();
+        return $lastId;
+    }
+
+    public static function update($data, $where = FALSE) {
+        $table = self::getTB();
         $fields = array_keys($data);
-        $values = self::real_escape_array($data);
-        $sql = "update `$table` set";
-        for ($i = 0; $i < count($fields); $i++) {
-            $sql = $sql . " `$fields[$i]` = '$values[$i]',";
+        $count = count($fields);
+        $sql = "UPDATE `$table` SET";
+        foreach ($fields as $key => $field) {
+            $value = self::$pdo->quote($data[$field]);
+            $sql .= " `$field` = $value";
+            if ($key < ($count - 1)) {
+                $sql .= ',';
+            }
         }
-        $sql = rtrim($sql, ',');
-        if ($where != '') {
-            $sql = $sql . " $where";
+        if ($where === FALSE) {
+            return FALSE;
         }
-        $state = mysqli_query(Core::getCon(), $sql);
-        $error = mysqli_error(Core::getCon());
-        if ($error != '') {
-            Core::getApp()->addError("Model Error!", "Message: $error!<br><i><b>Your query:</b> $sql</i>", 404);
-            Core::getApp()->checkError();
+        if ($where !== '') {
+            $sql .= " WHERE ($where)";
         }
-        static::reset();
-        return $state;
+        try {
+            $result = self::$pdo->exec($sql);
+        } catch (PDOException $ex) {
+            self::checkError($ex);
+        }
+        return $result;
     }
 
-    /**
-     * @param Array $data Array has key is field on database
-     * @param Boolean $getId TRUE = return new insert id
-     * @return Boolean Or Id
-     */
-    public static function insert($data, $getId = FALSE) {
+    public static function delete($where = FALSE) {
+        $table = self::getTB();
+        $sql = "DELETE FROM $table";
+        if ($where === FALSE || $where === '') {
+            return FALSE;
+        }
+        if ($where !== TRUE) {
+            $sql .= " WHERE ($where)";
+        }
+        try {
+            $result = self::$pdo->exec($sql);
+        } catch (PDOException $ex) {
+            self::checkError($ex);
+        }
+        return $result;
+    }
+
+    public static function count($query) {
+        return $query->rowCount();
+    }
+
+    private static function getTB() {
         $instance = new static();
-        $table = $instance->getTable();
-        $fields = "( `" . implode("`, `", array_keys($data)) . "` )";
-        $values = "( '" . implode("', '", self::real_escape_array($data)) . "' )";
-        $sql = "insert into `$table` $fields values $values;";
-        $state = mysqli_query(Core::getCon(), $sql);
-        $error = mysqli_error(Core::getCon());
-        if ($error != '') {
-            Core::getApp()->addError("Model Error!", "Message: $error!<br><i><b>Your query:</b> $sql</i>", 404);
-            Core::getApp()->checkError();
-        }
-        return ($getId) ? mysqli_insert_id(Core::getCon()) : $state;
+        return $instance->table;
     }
 
-    /**
-     * @return Array Get some row on database
-     */
-    public static function get() {
-        $instance = new static();
-        $table = $instance->getTable();
-        $select = static::$select;
-        $where = static::$where;
-        $orderby = static::$orderby;
-        $limit = static::$limit;
-        $sql = "select $select from `$table` $where $orderby $limit";
-        $query = mysqli_query(Core::getCon(), $sql);
-        $error = mysqli_error(Core::getCon());
-        if ($error != '') {
-            Core::getApp()->addError("Model Error!", "Message: $error!<br><i><b>Your query:</b> $sql</i>", 404);
-            Core::getApp()->checkError();
-        }
-        static::reset();
-        return static::returnArray($query);
+    private static function checkError($errors) {
+        var_dump($errors);
+        die;
+        //file_put_contents('PDOErrors.txt', $e->getMessage(), FILE_APPEND);
     }
 
-    /**
-     * @return Array Get first row on database
-     */
-    public static function first() {
-        $instance = new static();
-        $table = $instance->getTable();
-        $select = static::$select;
-        $where = static::$where;
-        $orderby = static::$orderby;
-        $sql = "select $select from `$table` $where $orderby limit 1";
-        $query = mysqli_query(Core::getCon(), $sql);
-        $error = mysqli_error(Core::getCon());
-        if ($error != '') {
-            Core::getApp()->addError("Model Error!", "Message: $error!<br><i><b>Your query:</b> $sql</i>", 404);
-            Core::getApp()->checkError();
-        }
-        static::reset();
-        return static::returnFirst($query);
-    }
-
-    /**
-     * @return Number Return number of rows
-     */
-    public static function count() {
-        $instance = new static();
-        $table = $instance->getTable();
-        $select = static::$select;
-        $where = static::$where;
-        $orderby = static::$orderby;
-        $limit = static::$limit;
-        $sql = "select $select from `$table` $where $orderby $limit";
-        static::reset();
-        return mysqli_num_rows(mysqli_query(Core::getCon(), $sql));
-    }
-
-    /**
-     * @param String $where Where Clause
-     * @return \static Set Where Clause
-     */
-    public static function where($where = "") {
-        if (!is_string($where)) {
-            static::alertRrrorString('where', debug_backtrace()[0]);
-        }
-        static::$where = ($where != "") ? "where " . $where : "";
+    public static function getInstance() {
         return new static();
-    }
-
-    /**
-     * @param String $select Select Clause
-     * @return \static Set Select Clause
-     */
-    public static function select($select = '*') {
-        static::$select = $select;
-        return new static();
-    }
-
-    /**
-     * @param String $orderBy OrderBy Clause
-     * @return \static Set OrderBy Clause
-     */
-    public static function orderBy($orderBy = "") {
-        if (!is_string($orderBy)) {
-            static::alertRrrorString('orderBy', debug_backtrace()[0]);
-        }
-        static::$orderby = ($orderBy != "") ? "order by " . $orderBy : "";
-        return new static();
-    }
-
-    /**
-     * @param String $limit Limit Clause
-     * @return \static Set Limit Clause
-     */
-    public static function limit($limit = "") {
-        if (!is_string($limit)) {
-            static::alertRrrorString('limit', debug_backtrace()[0]);
-        }
-        static::$limit = ($limit != "") ? "limit " . $limit : "";
-        return new static();
-    }
-
-    private static function alertRrrorString($action, $info) {
-        Core::getApp()->addError("Model Error!", "Message: Parameter of <b>$action()</b> method must has type of String!<br>"
-                . "<i><b>" . $info['file'] . "</b>" . " on line " . $info['line'] . "</i>", 404);
-        Core::getApp()->checkError();
-    }
-
-    private static function reset() {
-        static::$select = '*';
-        static::$where = '';
-        static::$orderby = '';
-        static::$limit = '';
-    }
-
-    private function getTable() {
-        return $this->table;
-    }
-
-    private static function returnFirst($result) {
-        return mysqli_fetch_assoc($result);
-    }
-
-    private static function returnArray($result) {
-        $return = array();
-        while ($row = mysqli_fetch_assoc($result)) {
-            $return[] = $row;
-        }
-        return $return;
-    }
-
-    private static function real_escape_array($data) {
-        $return = array();
-        foreach ($data as $value) {
-            array_push($return, mysqli_real_escape_string(Core::getCon(), $value));
-        }
-        return $return;
     }
 
 }

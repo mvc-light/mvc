@@ -2,7 +2,7 @@
 
 namespace MvcLight;
 
-use MvcLight\Model\Core;
+use MvcLight\Model\Base as BaseModel;
 use MvcLight\Core\App;
 
 class Origin {
@@ -12,14 +12,8 @@ class Origin {
     private $action;
     private $param;
 
-    const DIR_VIEW = ROOTDIR . DS . 'application' . DS . 'view';
-
     public function run() {
         self::access();
-    }
-
-    public function ENVPRO() {
-        $this->app->setENV('PRO');
     }
 
     public static function getStatic() {
@@ -33,13 +27,14 @@ class Origin {
     public function init($param) {
         $this->app = new App((isset($param['env']) && $param['env'] == 'PRO') ? $param['env'] : 'DEV');
         $info = include ROOTDIR . DS . 'application' . DS . 'config' . DS . 'db.php';
-        Core::getInstance()->init($info, $this->app)->connect();
+        BaseModel::getInstance()->init($info, $this->app);
         return $this;
     }
 
     private function access() {
         self::checkRoute();
-        $result = self::runAction();
+//        $result = self::runAction();
+        $result = $this->app->runAction($this->controller, $this->action);
         self::runView($result['view'], $result['data']);
     }
 
@@ -49,48 +44,49 @@ class Origin {
         try {
             echo $this->app->getTwig()->render($view, $data);
         } catch (\Twig_Error $ex) {
-            self::addError('Twig File Error!', "Messeger: " . $ex->getMessage(), 404);
+            self::addError('Twig File Error!', "Messeger: " . $ex->getMessage(), 500);
             self::checkError();
         }
     }
 
     private function checkView($view) {
-        if (!is_file(self::DIR_VIEW . DS . $view)) {
-            self::addError('View error!', "File: <b>\"" . str_replace('/', '\\', self::DIR_VIEW . DS . $view) . "\"</b> is not exist!", 404);
+        $dir_view = ROOTDIR . DS . 'application' . DS . 'view';
+        if (!is_file($dir_view . DS . $view)) {
+            self::addError('View error!', "File: <b>\"" . str_replace('/', '\\', $dir_view . DS . $view) . "\"</b> is not exist!", 500);
             self::checkError();
         }
     }
 
-    private function runAction() {
-        $controller = $this->controller;
-        $class = '\\App\\Controller\\' . $controller;
-        if (!class_exists($class)) {
-            self::addError('Controller error!', "Class: <b>\"$class\"</b> is not exist!", 404);
-            self::checkError();
-        } else {
-            self::checkInstantiable($class);
-            $action = $this->action;
-            if (!method_exists($class, $action)) {
-                self::addError('Action error!', "Method: <b>\"$class::$action\"</b> is not exist!", 404);
-                self::checkError();
-            } else {
-                return call_user_func_array(
-                        array(
-                    new $class(),
-                    $action
-                        ), $this->app->getRoute()->get('seleted_route')['param_route']
-                );
-            }
-        }
-    }
+//    public function runAction($ctrl = null, $act = null) {
+//        $controller = ($ctrl) ? $ctrl : $this->controller;
+//        $class = '\\App\\Controller\\' . $controller;
+//        if (!class_exists($class)) {
+//            self::addError('Controller error!', "Class: <b>\"$class\"</b> is not exist!", 404);
+//            self::checkError();
+//        } else {
+//            self::checkInstantiable($class);
+//            $action = ($act) ? $act : $this->action;
+//            if (!method_exists($class, $action)) {
+//                self::addError('Action error!', "Method: <b>\"$class::$action\"</b> is not exist!", 404);
+//                self::checkError();
+//            } else {
+//                return call_user_func_array(
+//                        array(
+//                    new $class(),
+//                    $action
+//                        ), $this->app->getRoute()->get('seleted_route')['param_route']
+//                );
+//            }
+//        }
+//    }
 
-    private function checkInstantiable($class) {
-        $reflectionClass = new \ReflectionClass($class);
-        if (!$reflectionClass->IsInstantiable()) {
-            self::addError('Controller error!', "Class: <b>\"$class\"</b> is can not initialize!", 404);
-            self::checkError();
-        }
-    }
+//    private function checkInstantiable($class) {
+//        $reflectionClass = new \ReflectionClass($class);
+//        if (!$reflectionClass->IsInstantiable()) {
+//            self::addError('Controller error!', "Class: <b>\"$class\"</b> is can not initialize!", 404);
+//            self::checkError();
+//        }
+//    }
 
     private function checkRoute() {
         $_path = $this->app->getRequest()->get('path');

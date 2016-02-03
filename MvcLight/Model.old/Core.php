@@ -1,6 +1,6 @@
 <?php
 
-namespace MvcLight\Model;
+namespace MvcLight\Modelold;
 
 class Core {
 
